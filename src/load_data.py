@@ -24,4 +24,3 @@ db_pass = os.getenv("MSSQL_SA_PASSWORD")
 if not db_pass: raise ValueError("Variable empty or it doesn't exist.")
 
 engine = create_engine(f'mssql+mssqlpython://sa:{db_pass}@localhost:1433/master?TrustServerCertificate=yes')
-
