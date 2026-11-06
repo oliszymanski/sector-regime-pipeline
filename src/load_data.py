@@ -21,13 +21,18 @@ import pandas as pd
 
 load_dotenv()
 
+
+
 #======================================================================================
 #   FUNCTIONS
 #======================================================================================
 
-def get_ticker_data( ls_tickers : list ):
-
-    tickers = {'ticker' : [], 'ticker_name' : [], 'sector' : []}
+def get_ticker_data( ls_tickers : list ) -> pd.DataFrame:
+    tickers = {
+        'ticker' : [],
+        'ticker_name' : [],
+        'sector' : []
+    }
 
     for ticker in ls_tickers:
         info = yf.Ticker(ticker).info
@@ -41,15 +46,34 @@ def get_ticker_data( ls_tickers : list ):
     return df_tickers
 
 
-def get_prices_data(): return
+
+def get_prices_data( ls_tickers : list ) -> pd.DataFrame:
+    prices = {
+        'trade_date' : [],
+        'ticker' : [],
+        'close_price' : [],
+        'adj_close' : [],
+        'volume' : []
+    }
+
+    for ticker in ticker_data:
+        info = yf.Ticker(ticker).history(period='10y', interval='1d', auto_adjust=False)
+
+        prices['trade_date'].extend(info.index.date)
+        prices['ticker'].extend([ticker] * len(info))
+        prices['close_price'].extend(info['Close'].tolist())
+        prices['adj_close'].extend(info['Adj Close'].tolist())
+        prices['volume'].extend(info['Volume'].tolist())
 
 
+    df_prices = pd.DataFrame(prices)
 
-def get_regimes(): return
+    return df_prices
+
 
 
 #======================================================================================
-#   DATA
+#   DATA PREPERATION
 #======================================================================================
 
 ticker_data = {
@@ -67,12 +91,11 @@ ticker_data = {
 
 ls_tickers = list(ticker_data.keys())
 
-prices = {}
-regimes = {}
-
 df_tickers = get_ticker_data( ls_tickers=ls_tickers )
+df_prices_data = get_prices_data( ls_tickers=ls_tickers )
 
-print(df_tickers)
+print(df_prices_data.head(10))
+
 
 
 #======================================================================================
@@ -97,8 +120,16 @@ url = URL.create(
 
 engine = create_engine(url)
 
-df_tickers.to_sql(
+df_tickers.to_sql(          # tickers table
     name='tickers',
+    con=engine,
+    schema='dbo',
+    if_exists='replace',
+    index=False
+)
+
+df_prices_data.to_sql(      # prices table
+    name='prices',
     con=engine,
     schema='dbo',
     if_exists='replace',
