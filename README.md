@@ -1,145 +1,131 @@
-# sector-regime-pipeline
-An end-to-end quantitative financial analytics pipeline and interactive dashboard. The system ingests multi-year historical price series across 10 US sector Select Sector SPDR ETFs and the S&P 500 benchmark (`SPY`), models market regimes and relative sector performance dynamically using optimized Microsoft SQL Server views (with CTEs and Window Functions), and surfaces macro sensitivity matrices via an interactive Streamlit & Plotly analytical interface.
+# US Sector Rotation & Macro Regime Pipeline
+
+An end-to-end quantitative data pipeline and interactive analytics platform that evaluates cross-sectional sector momentum across distinct macroeconomic market regimes.
+
+The system ingests 10 years of daily adjusted equity and ETF price series via Python, enforces strict relational schema constraints and indexing within Microsoft SQL Server (Docker), computes rolling trend and volatility indicators using advanced T-SQL analytical window functions, and delivers an interactive Streamlit dashboard.
 
 ---
 
-## 🏛 Architecture Overview
-
-```text
-               ┌───────────────────────┐
-               │     Yahoo Finance     │
-               └──────────┬────────────┘
-                          │ (REST API / yfinance)
-                          ▼
-               ┌───────────────────────┐
-               │    src/load_data.py   │
-               └──────────┬────────────┘
-                          │ (SQLAlchemy Batch Append)
-                          ▼
-┌────────────────────────────────────────────────────────┐
-│             Microsoft SQL Server (Docker)              │
-│                                                        │
-│  ┌────────────────────┐      ┌──────────────────────┐  │
-│  │   dbo.tickers      │      │      dbo.prices      │  │
-│  │ (Dimension Table)  │      │    (Fact Table)      │  │
-│  └─────────┬──────────┘      └──────────┬───────────┘  │
-│            │                            │              │
-│            └──────────────┬─────────────┘              │
-│                           ▼                            │
-│           ┌────────────────────────────────┐           │
-│           │        dbo.vw_regimes          │           │
-│           │   (200d SMA, 20d Volatility)   │           │
-│           └───────────────┬────────────────┘           │
-│                           ▼                            │
-│           ┌────────────────────────────────┐           │
-│           │    dbo.vw_sector_rankings      │           │
-│           │    (DENSE_RANK() by return)    │           │
-│           └───────────────┬────────────────┘           │
-└───────────────────────────┼────────────────────────────┘
-                            │
-                            ▼
-               ┌───────────────────────┐
-               │       src/app.py      │
-               │  (Streamlit & Plotly) │
-               └───────────────────────┘
-```
-
-### 1. Ingestion Layer (`src/load_data.py`)
-* Extracts 10 years of split- and dividend-adjusted market price data for the broad market benchmark (`SPY`) and 9 primary sector ETFs (`XLK`, `XLF`, `XLV`, `XLE`, `XLY`, `XLP`, `XLI`, `XLU`, `XLB`).
-* Validates schema and uses typed chunked ingestion (`fast_executemany=True`) to append records into dedicated tables.
-
-### 2. Analytical Transformation Layer (T-SQL Views)
-* **`dbo.vw_regimes`**:
-  * Calculates daily percentage returns:
-    $$\text{daily\_return}_t = \frac{P_t - P_{t-1}}{P_{t-1}}$$
-  * Evaluates the 200-day Simple Moving Average ($\text{SMA}_{200}$):
-    $$\text{SMA}_{200, t} = \frac{1}{200} \sum_{i=0}^{199} P_{t-i}$$
-  * Computes 20-day annualized rolling volatility ($\sigma_{20d}$):
-    $$\sigma_{20d, t} = \text{STDEV}(\text{daily\_return}_{t-19 \dots t}) \times \sqrt{252}$$
-  * Segregates market condition into 4 distinct quadrants:
-    * **`Bull_LowVol`**: $P_t \ge \text{SMA}_{200}$ and $\sigma_{20d} < 15\%$
-    * **`Bull_HighVol`**: $P_t \ge \text{SMA}_{200}$ and $\sigma_{20d} \ge 15\%$
-    * **`Bear_LowVol`**: $P_t < \text{SMA}_{200}$ and $\sigma_{20d} < 15\%$
-    * **`Bear_HighVol`**: $P_t < \text{SMA}_{200}$ and $\sigma_{20d} \ge 15\%$
-* **`dbo.vw_sector_rankings`**:
-  * Calculates daily sector returns independently using windowed partitions (`PARTITION BY ticker ORDER BY trade_date`).
-  * Assigns cross-sectional performance ranks for each trading day using `DENSE_RANK() OVER (PARTITION BY trade_date ORDER BY daily_return DESC)`.
-  * Joins each sector's daily rank with the S&P 500 macro regime snapshot.
-
-### 3. Presentation Layer (`src/app.py`)
-* **Live Market KPIs**: Current regime status, latest session date, top-performing and lagging sectors.
-* **Sensitivity Heatmap**: Average daily percentage returns across each sector/regime intersection.
-* **Cross-Sectional Ranking**: Average sector positions per regime.
-* **Cumulative Return Charts**: Historical capital growth trajectories with dynamic sector comparisons.
-
----
-
-## 📁 Repository Structure
+## Architecture Overview
 
 ```text
 sector-regime-pipeline/
-├── .env                       # Environment credentials (git-ignored)
-├── .env.example               # Template for environment configuration
-├── .gitignore                 # Standard Python, IDE, and OS ignore rules
-├── docker-compose.yml         # Container configuration for Microsoft SQL Server
-├── README.md                  # Complete documentation and setup manual
-├── requirements.txt           # Production Python library dependencies
 ├── sql/
-│   ├── 01_create_tables.sql   # DDL: MarketAnalytics DB, constraints, indexes
-│   ├── 02_views_regimes.sql   # T-SQL: SPY regime classification view
-│   └── 03_views_sector_rankings.sql # T-SQL: Sector relative rank view
-└── src/
-    ├── app.py                 # Streamlit analytical dashboard
-    └── load_data.py           # Ingestion script (yfinance -> SQL Server)
+│   ├── 01_create_tables.sql          # DDL: Database creation, tables, constraints, and indexes
+│   ├── 02_views_regimes.sql          # T-SQL View: SPY 200 SMA, 20d rolling volatility, regime labels
+│   └── 03_views_sector_rankings.sql  # T-SQL View: Daily sector returns, DENSE_RANK, regime join
+├── src/
+│   ├── load_data.py                  # Ingestion: yfinance extraction, validation, batch insertion
+│   └── app.py                        # Presentation: Streamlit interactive dashboard & Plotly charts
+├── .env                              # Environment credentials (excluded from version control)
+├── .env.example                      # Template for environment configuration
+├── .gitignore                        # Git exclusion rules
+├── docker-compose.yml                # SQL Server 2025 container specification
+├── requirements.txt                  # Pinned Python package dependencies
+└── README.md                         # Project documentation
 ```
 
 ---
 
-## ⚙️ Prerequisites
+## Quantitative Methodology
 
-* **Docker & Docker Compose** (Docker Engine 20.10+ / Docker Compose v2+)
-* **Python 3.11+** (Python 3.12 recommended)
-* **Microsoft ODBC Driver 18 for SQL Server**:
-  * *Fedora / RHEL*: `sudo dnf install msodbcsql18`
-  * *Ubuntu / Debian*: `sudo apt-get install msodbcsql18`
-  * *macOS*: `brew install msodbcsql18`
-  * *Windows*: Included automatically or installed via Microsoft Web Platform Installer.
+### 1. Market Regime Classification (`dbo.vw_regimes`)
+
+Market conditions are categorized using the SPDR S&P 500 ETF Trust (`SPY`) as the broader market benchmark across two orthogonal dimensions: **Trend** and **Realized Volatility**.
+
+* **Daily Asset Return**:
+  $$\text{Return}_t = \frac{P_t - P_{t-1}}{P_{t-1}}$$
+
+* **Trend Filter ($200$-Day Simple Moving Average)**:
+  $$\text{SMA}_{200, t} = \frac{1}{200} \sum_{i=0}^{199} P_{t-i}$$
+
+* **Volatility Filter ($20$-Day Annualized Realized Volatility)**:
+  $$\sigma_{20d, t} = \text{STDEV}\left(\text{Return}_{t-19 \dots t}\right) \times \sqrt{252}$$
+
+* **Regime Matrix**:
+  The benchmark state at time $t$ is mapped into one of four distinct macroeconomic quadrants:
+  * **Bull_LowVol**: $P_t \ge \text{SMA}_{200, t} \quad \text{and} \quad \sigma_{20d, t} < 0.15$
+  * **Bull_HighVol**: $P_t \ge \text{SMA}_{200, t} \quad \text{and} \quad \sigma_{20d, t} \ge 0.15$
+  * **Bear_LowVol**: $P_t < \text{SMA}_{200, t} \quad \text{and} \quad \sigma_{20d, t} < 0.15$
+  * **Bear_HighVol**: $P_t < \text{SMA}_{200, t} \quad \text{and} \quad \sigma_{20d, t} \ge 0.15$
+
+*A 200-session warmup window (`WHERE rn >= 200`) ensures rolling window estimates are fully populated before downstream joins.*
 
 ---
 
-## 🚀 Step-by-Step Execution Guide
+### 2. Relative Sector Strength & Cross-Sectional Ranking (`dbo.vw_sector_rankings`)
 
-### Step 1: Clone and Configure Environment
+For each trading session $t$, daily percentage returns are calculated across the 9 primary Select Sector SPDR ETFs:
+
+$$\text{SectorReturn}_{s, t} = \frac{\text{AdjClose}_{s, t} - \text{AdjClose}_{s, t-1}}{\text{AdjClose}_{s, t-1}} \times 100$$
+
+Cross-sectional rank is assigned via `DENSE_RANK()`:
+
+$$\text{Rank}_{s, t} = \text{DENSE\_RANK}() \quad \text{OVER} \left( \text{PARTITION BY } t \quad \text{ORDER BY } \text{SectorReturn}_{s, t} \text{ DESC} \right)$$
+
+* A rank of $1$ designates the relative session outperformer; a rank of $9$ designates the relative underperformer.
+
+---
+
+## Tech Stack
+
+* **Database Engine**: Microsoft SQL Server 2025 (`mcr.microsoft.com/mssql/server:2025-latest`)
+* **Data Processing & Pipeline**: Python 3.12, SQLAlchemy 2.0, pyodbc, yfinance, Pandas
+* **Database Driver**: Microsoft ODBC Driver 18 for SQL Server
+* **Transformation & Business Logic**: T-SQL (Common Table Expressions, Analytic Window Functions `LAG`, `AVG OVER`, `STDEV OVER`, `DENSE_RANK`)
+* **Visualization & Serving**: Streamlit, Plotly Express
+
+---
+
+## Installation & Setup Guide
+
+### 1. Prerequisites
+
+Ensure the following tools are installed on the host operating system:
+
+* [Docker](https://docs.docker.com/engine/install/) & Docker Compose
+* Python 3.11+ (Python 3.12 recommended)
+* [Microsoft ODBC Driver 18 for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+
+### 2. Clone the Repository & Configure Environment
 
 ```bash
 git clone https://github.com/oliszymanski/sector-regime-pipeline.git
 cd sector-regime-pipeline
-```
 
-Create a `.env` file in the repository root:
-
-```bash
+# Create local environment configuration
 cp .env.example .env
 ```
 
-Ensure your `.env` contains your target SA password:
+Edit `.env` to define your database password:
 
 ```env
-MSSQL_SA_PASSWORD=WeHaveToChangeThisPassword_2027!
-ACCEPT_EULA=Y
+MSSQL_SA_PASSWORD=YourStrongPasswordHere
+```
+
+### 3. Initialize Python Virtual Environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
 ---
 
-### Step 2: Spin Up the Database Container
+## Execution Pipeline
 
-Start Microsoft SQL Server in detached mode:
+### Step 1: Start the Database Container
+
+Deploy the Microsoft SQL Server container:
 
 ```bash
 docker compose up -d
 ```
 
-Verify that the container is healthy and listening on port `1433`:
+Verify the container is operational:
 
 ```bash
 docker ps --filter "name=sqlserver"
@@ -147,61 +133,49 @@ docker ps --filter "name=sqlserver"
 
 ---
 
-### Step 3: Initialize Database Schema (DDL) & Views
+### Step 2: Initialize Database Schema (DDL)
 
-Apply the migration scripts in sequential order. You can execute them directly inside the running container using `docker exec`:
+Execute `sql/01_create_tables.sql` to initialize the `MarketAnalytics` database, relational tables, constraints, and performance indexes:
 
 ```bash
-# 1. Create database, tables, primary keys, and indexes
 docker exec -i sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C \
   < sql/01_create_tables.sql
-
-# 2. Compile market regime classification view
-docker exec -i sqlserver /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d MarketAnalytics -C \
-  < sql/02_views_regimes.sql
-
-# 3. Compile sector ranking view
-docker exec -i sqlserver /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d MarketAnalytics -C \
-  < sql/03_views_sector_rankings.sql
-```
-
-*(Note: On older container builds, the executable path may be `/opt/mssql-tools/bin/sqlcmd`)*.
-
----
-
-### Step 4: Configure Virtual Environment & Install Dependencies
-
-```bash
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate virtual environment
-# On Linux / macOS (bash/zsh):
-source .venv/bin/activate
-# On Linux (fish):
-source .venv/bin/activate.fish
-# On Windows:
-.venv\Scripts\activate
-
-# Upgrade pip and install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
 ```
 
 ---
 
-### Step 5: Ingest Historical Market Data
+### Step 3: Ingest Historical Financial Data
 
-Execute the ingestion script to pull 10 years of market data from Yahoo Finance and populate `dbo.tickers` and `dbo.prices`:
+Run the ingestion script to extract 10 years of daily OHLCV series for benchmark and sector tickers from Yahoo Finance and load them into SQL Server:
 
 ```bash
 python src/load_data.py
 ```
 
-Verify the ingestion directly via container CLI:
+---
+
+### Step 4: Compile Analytical Views
+
+Compile the transformation logic in sequential order:
+
+```bash
+# 1. Compile Market Regime View
+docker exec -i sqlserver /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d MarketAnalytics -C \
+  < sql/02_views_regimes.sql
+
+# 2. Compile Cross-Sectional Sector Rankings View
+docker exec -i sqlserver /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d MarketAnalytics -C \
+  < sql/03_views_sector_rankings.sql
+```
+
+---
+
+### Step 5: Verify Pipeline Output
+
+Execute an ad-hoc query against the final compiled view:
 
 ```bash
 docker exec -it sqlserver /opt/mssql-tools18/bin/sqlcmd \
@@ -213,29 +187,19 @@ docker exec -it sqlserver /opt/mssql-tools18/bin/sqlcmd \
 
 ### Step 6: Launch the Streamlit Dashboard
 
-Start the application:
+Start the web application:
 
 ```bash
 streamlit run src/app.py
 ```
 
-The web dashboard will automatically open at:
-```text
-http://localhost:8501
-```
+The application will be accessible at `http://localhost:8501`.
 
 ---
 
-## 🛠 Troubleshooting & FAQ
+## Interactive Dashboard Features
 
-### 1. `ODBC Driver 18 for SQL Server: SSL Provider: [certificate verify failed]`
-ODBC 18 enforces SSL encryption by default. All project scripts configure `TrustServerCertificate=yes` (or the `-C` flag in `sqlcmd`). Ensure your connection string includes:
-```python
-query={"driver": "ODBC Driver 18 for SQL Server", "TrustServerCertificate": "yes"}
-```
-
-### 2. `Invalid object name 'dbo.vw_regimes'`
-This occurs if `sql/03_views_sector_rankings.sql` is run prior to `sql/02_views_regimes.sql`, or if executed against `master` rather than `MarketAnalytics`. Always run scripts sequentially and ensure `USE MarketAnalytics; GO` executes first.
-
-### 3. Streamlit cache invalidation
-If new records are ingested, press **`C`** inside the browser window to clear the `@st.cache_data` memory or restart the Streamlit server.
+1. **Current Regime Snapshot (KPIs)**: Instant display of latest session date, active market regime label, session outperformer (Rank 1), and session laggard (Rank 9).
+2. **Sector Sensitivity Heatmap**: Cross-tabulation of average daily return (%) across the 4 macroeconomic quadrants, highlighting defensive versus cyclical behavior.
+3. **Regime-Specific Rank Distribution**: Horizontal ranking breakdown of sector strength within any selected regime filter.
+4. **Normalized Cumulative Return Curves**: Dynamic time-series asset growth simulations allowing multi-sector comparative performance analysis.
