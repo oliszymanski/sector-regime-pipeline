@@ -54,13 +54,11 @@ def load_data() -> pd.DataFrame:
 
 df = load_data()
 
-# Nagłówek aplikacji
 st.title("📊 US Sector Rotation & Macro Regime Dashboard")
 st.markdown(
     "Analiza relatywnej siły sektorów S&P 500 w zależności od reżimu rynkowego (SMA 200 vs Realized Volatility)."
 )
 
-# Pasek boczny z filtrami
 st.sidebar.header("Parametry Analizy")
 min_date = df["trade_date"].min().date()
 max_date = df["trade_date"].max().date()
@@ -81,7 +79,6 @@ if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
 else:
     filtered_df = df
 
-# 1. Metryki bieżącego stanu (Snapshot ostatniej sesji)
 latest_date = df["trade_date"].max()
 latest_snapshot = df[df["trade_date"] == latest_date]
 latest_regime = latest_snapshot["regime_label"].iloc[0]
@@ -95,8 +92,6 @@ col3.metric("Lider sesji (Rank 1)", top_sector)
 col4.metric("Maruder sesji (Rank 9)", worst_sector)
 
 st.divider()
-
-# 2. Główna Heatmapa - Średnia stopa zwrotu sektorów wg reżimów
 st.subheader("🔥 Macierz Wrażliwości Sektorowej (Average Daily Return %)")
 
 heatmap_data = (
@@ -116,10 +111,9 @@ fig_heatmap = px.imshow(
     text_auto=True,
     aspect="auto",
 )
+
 fig_heatmap.update_layout(height=450)
 st.plotly_chart(fig_heatmap, use_container_width=True)
-
-# 3. Sekcja szczegółowa - Ranking w reżimie oraz krzywe skumulowane
 c1, c2 = st.columns((1, 1))
 
 with c1:

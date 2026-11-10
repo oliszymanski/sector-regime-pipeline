@@ -1,0 +1,14 @@
+# Core Data Extraction & Manipulation
+yfinance>=0.2.38
+pandas>=2.2.0
+
+# Database Connectivity & ORM
+sqlalchemy>=2.0.28
+pyodbc>=5.1.0
+
+# Environment Configuration
+python-dotenv>=1.0.1
+
+# Interactive Dashboard & Visualizations
+streamlit>=1.32.0
+plotly>=5.20.0
