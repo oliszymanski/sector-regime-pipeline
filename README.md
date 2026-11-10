@@ -27,6 +27,22 @@ sector-regime-pipeline/
 
 ---
 
+## Empirical Findings & Macro Insights
+
+* **Defensive Hegemony in High-Volatility Contractions (`Bear_HighVol`):**
+  Utilities (`XLU`) and Consumer Staples (`XLP`) demonstrate the strongest capital preservation characteristics, consistently achieving top average ranks (ranks 1–3). Inelastic consumer demand and regulated cash-flow profiles insulate these sectors from severe equity drawdowns.
+
+* **Growth and Multiple Expansion in Secular Advances (`Bull_LowVol`):**
+  Technology (`XLK`) and Consumer Discretionary (`XLY`) consistently dominate low-volatility bull markets. Favorable risk-free discount rates and expanding corporate earnings deliver asymmetric upside and the highest cumulative capital appreciation.
+
+* **Cyclical Outperformance During Macro Accelerations (`Bull_HighVol`):**
+  Financial Services (`XLF`) and Industrials (`XLI`) gain relative momentum during high-volatility expansions. Rising long-term yield curve steepness and robust capital expenditure cycles directly boost net interest margins and operating leverage.
+
+* **Commodity and Supply-Shock Decoupling:**
+  Energy (`XLE`) displays low correlation to traditional equity factor cycles, frequently outperforming during supply-side inflationary episodes and geopolitical dislocations even when the broader market contracts below its 200-day moving average.
+
+---
+
 ## Quantitative Methodology
 
 ### 1. Market Regime Classification (`dbo.vw_regimes`)
