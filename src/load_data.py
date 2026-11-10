@@ -21,7 +21,18 @@ import pandas as pd
 
 load_dotenv()
 
-
+ticker_data = {
+    "SPY": "Broad Market",
+    "XLK": "Technology",
+    "XLF": "Financial Services",
+    "XLV": "Healthcare",
+    "XLE": "Energy",
+    "XLY": "Consumer Cyclical",
+    "XLP": "Consumer Defensive",
+    "XLI": "Industrials",
+    "XLU": "Utilities",
+    "XLB": "Basic Materials",
+}
 
 #======================================================================================
 #   FUNCTIONS
@@ -76,25 +87,12 @@ def get_prices_data( ls_tickers : list ) -> pd.DataFrame:
 #   DATA PREPERATION
 #======================================================================================
 
-ticker_data = {
-    "SPY": "Broad Market",
-    "XLK": "Technology",
-    "XLF": "Financial Services",
-    "XLV": "Healthcare",
-    "XLE": "Energy",
-    "XLY": "Consumer Cyclical",
-    "XLP": "Consumer Defensive",
-    "XLI": "Industrials",
-    "XLU": "Utilities",
-    "XLB": "Basic Materials",
-}
-
 ls_tickers = list(ticker_data.keys())
 
 df_tickers = get_ticker_data( ls_tickers=ls_tickers )
 df_prices_data = get_prices_data( ls_tickers=ls_tickers )
 
-print(df_prices_data.head(10))
+print(df_tickers.head(20))
 
 
 
@@ -111,7 +109,7 @@ url = URL.create(
     password=db_pass,
     host='localhost',
     port=1433,
-    database="master",
+    database="MarketAnalytics",
     query={
         "driver" : "ODBC Driver 18 for SQL Server",
         "TrustServerCertificate" : "yes"
@@ -124,7 +122,7 @@ df_tickers.to_sql(          # tickers table
     name='tickers',
     con=engine,
     schema='dbo',
-    if_exists='replace',
+    if_exists='append',
     index=False
 )
 
@@ -132,6 +130,6 @@ df_prices_data.to_sql(      # prices table
     name='prices',
     con=engine,
     schema='dbo',
-    if_exists='replace',
+    if_exists='append',
     index=False
 )
