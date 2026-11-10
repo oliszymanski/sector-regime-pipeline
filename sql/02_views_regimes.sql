@@ -1,3 +1,6 @@
+USE MarketAnalytics;
+GO
+
 CREATE OR ALTER VIEW dbo.vw_regimes AS
 WITH spy_daily AS (
     SELECT
@@ -46,3 +49,5 @@ FROM spy_metrics
 
 -- Filter out the initial warmup period where 200-day SMA is incomplete
 WHERE rn >= 200;
+
+GO
